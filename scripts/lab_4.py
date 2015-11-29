@@ -125,12 +125,12 @@ if __name__ == '__main__':
     cost_map = OccupancyGrid()
 
     # Create Node
-    rospy.init_node('lab3')
+    rospy.init_node('lab4')
 
     # Subscribers
     world_map_sub = rospy.Subscriber('/map', OccupancyGrid, readWorldMapCallback)
     start_pose_sub = rospy.Subscriber('/initialpose', PoseWithCovarianceStamped, startCallback)
-    goal_pose_sub = rospy.Subscriber('/move_base_simple/goal/lab_3', PoseStamped, goalCallback)
+    goal_pose_sub = rospy.Subscriber('/move_base_simple/goal/lab_4', PoseStamped, goalCallback)
     cost_map_sub = rospy.Subscriber('/move_base/global_costmap/costmap', OccupancyGrid, costMapCallback)
 
     # Publishers
@@ -139,10 +139,10 @@ if __name__ == '__main__':
     global path_pub
     global waypoints_pub
 
-    start_pub = rospy.Publisher('/lab3/start', GridCells, queue_size=1)
-    goal_pub = rospy.Publisher('/lab3/goal', GridCells, queue_size=1)
-    path_pub = rospy.Publisher('/lab3/path', GridCells, queue_size=1)
-    waypoints_pub = rospy.Publisher('/lab3/waypoints', Path, queue_size=1)
+    start_pub = rospy.Publisher('/lab4/start', GridCells, queue_size=1)
+    goal_pub = rospy.Publisher('/lab4/goal', GridCells, queue_size=1)
+    path_pub = rospy.Publisher('/lab4/path', GridCells, queue_size=1)
+    waypoints_pub = rospy.Publisher('/lab4/waypoints', Path, queue_size=1)
 
     print "Waiting for map"
     while world_map == None and not rospy.is_shutdown():
@@ -203,6 +203,6 @@ if __name__ == '__main__':
                 path.poses.append(PoseStamped(Header(), Pose(n, Quaternion())))
             waypoints_pub.publish(path)
 
-            print "Published generated path to topic: [/lab3/waypoints]"
+            print "Published generated path to topic: [/lab4/waypoints]"
     
     print "Exiting program"

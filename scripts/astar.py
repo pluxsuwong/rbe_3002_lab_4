@@ -3,7 +3,7 @@
 import rospy
 import roslib
 import math
-import lab_3
+import lab_4
 from nav_msgs.msg import OccupancyGrid, GridCells
 from geometry_msgs.msg import Point
 
@@ -15,10 +15,12 @@ def a_star(start_in, goal_in, w_map):
     global expanded_pub
     global frontier_pub
     global unexplored_pub
+    global obstacles_pub
 
-    expanded_pub = rospy.Publisher('/lab3/expanded', GridCells, queue_size=0)
-    frontier_pub = rospy.Publisher('/lab3/frontier', GridCells, queue_size=0)
-    unexplored_pub = rospy.Publisher('/lab3/unexplored', GridCells, queue_size=0)
+    expanded_pub = rospy.Publisher('/lab4/expanded', GridCells, queue_size=0)
+    frontier_pub = rospy.Publisher('/lab4/frontier', GridCells, queue_size=0)
+    unexplored_pub = rospy.Publisher('/lab4/unexplored', GridCells, queue_size=0)
+    obstacles_pub = rospy.Publisher('/lab4/obstacles', GridCells, queue_size=1)
 
     start = Point(start_in[0], start_in[1], 0)
     goal = Point(goal_in[0], goal_in[1], 0)
@@ -32,14 +34,19 @@ def a_star(start_in, goal_in, w_map):
 
     came_from = {}
 
+    e_o_i = rvizObstacles(w_map)
+    print "Expanded obstacles on map"
+
+    w_map_2 = updateMap(e_o_i, w_map)
+
     g_score = []
-    for x in range(len(w_map.data)):
+    for x in range(len(w_map_2.data)):
         g_score.append(99999.9)
     g_score[start_i] = 0    # Cost from start along best known path.
 
     # Estimated total cost from start to goal through y.
     f_score = []
-    for x in range(len(w_map.data)):
+    for x in range(len(w_map_2.data)):
         f_score.append(99999.9)
     f_score[start_i] = g_score[start_i] + heuristic_cost_estimate(start_i, goal_i, map_len)
      
@@ -47,13 +54,13 @@ def a_star(start_in, goal_in, w_map):
         current_i = int(min_f_score_node(open_set, f_score, map_len))  # the node in open_set having the lowest f_score[] value
         if current_i == goal_i:
 
-            rvizExpanded([0], w_map)
-            rvizFrontier([0], w_map)
+            rvizExpanded([0], w_map_2)
+            rvizFrontier([0], w_map_2)
             return reconstruct_path(came_from, goal_i, map_len)
          
         open_set.discard(current_i)
         closed_set.add(current_i)
-        current_neighbors = neighbors(current_i, w_map)
+        current_neighbors = neighbors(current_i, w_map_2)
         
         for neighbor_i in current_neighbors:
             if neighbor_i in closed_set:
@@ -69,8 +76,8 @@ def a_star(start_in, goal_in, w_map):
             g_score[neighbor_i] = tentative_g_score
             f_score[neighbor_i] = g_score[neighbor_i] + heuristic_cost_estimate(neighbor_i, goal_i, map_len)
 
-        rvizFrontier(open_set, w_map)
-        rvizExpanded(closed_set, w_map)
+        rvizFrontier(open_set, w_map_2)
+        rvizExpanded(closed_set, w_map_2)
 
     print 'A* Failed...'
     return None
@@ -145,7 +152,7 @@ def rvizExpanded(cell_list, w_map):
     expanded_GC.cell_height = w_map.info.resolution
     expanded_GC.cells = []
     for cell in cell_list:
-        expanded_GC.cells.append(lab_3.gridToWorld(i_to_p(cell, w_map.info.width), w_map))
+        expanded_GC.cells.append(lab_4.gridToWorld(i_to_p(cell, w_map.info.width), w_map))
     expanded_GC.header.frame_id = 'map'
     expanded_pub.publish(expanded_GC)
 
@@ -157,7 +164,7 @@ def rvizFrontier(cell_list, w_map):
     frontier_GC.cell_height = w_map.info.resolution
     frontier_GC.cells = []
     for cell in cell_list:
-        frontier_GC.cells.append(lab_3.gridToWorld(i_to_p(cell, w_map.info.width), w_map))
+        frontier_GC.cells.append(lab_4.gridToWorld(i_to_p(cell, w_map.info.width), w_map))
     frontier_GC.header.frame_id = 'map'
     frontier_pub.publish(frontier_GC)
 
@@ -169,7 +176,48 @@ def rvizUnexplored(cell_list, w_map):
     unexplored_GC.cell_height = w_map.info.resolution
     unexplored_GC.cells = []
     for cell in cell_list:
-        unexplored_GC.cells.append(lab_3.gridToWorld(i_to_p(cell, w_map.info.width), w_map))
+        unexplored_GC.cells.append(lab_4.gridToWorld(i_to_p(cell, w_map.info.width), w_map))
     unexplored_GC.header.frame_id = 'map'
     unexplored_pub.publish(unexplored_GC)
 
+def rvizObstacles(w_map):
+    global obstacles_pub
+
+    obstacles_GC = GridCells()
+    obstacles_GC.cell_width = w_map.info.resolution
+    obstacles_GC.cell_height = w_map.info.resolution
+    obstacles_GC.cells = []
+    obstacle_pts = []
+    expanded_pts = set([])
+    e_o_i = set([])
+
+    for index, node in enumerate(w_map.data):
+        if node > 50:
+            obstacle_pts.append(index)
+
+    for index in obstacle_pts:
+        for i in range(-4, 5):
+            for j in range(-4, 5):
+                point = i_to_p(index, w_map.info.width)
+                point.x += i
+                point.y += j
+                e_o_i.add(p_to_i(point, w_map.info.width))
+                expanded_pts.add(lab_4.gridToWorld(point, w_map))
+    
+    obstacles_GC.cells = list(expanded_pts)
+
+    obstacles_GC.header.frame_id = 'map'
+    obstacles_pub.publish(obstacles_GC)
+    return list(e_o_i)
+
+def updateMap(e_o_indexes, w_map):
+    newGrid = OccupancyGrid()
+    newGrid.info = w_map.info
+    tmp_data = list(w_map.data)
+    
+    for index in e_o_indexes:
+        tmp_data[index] = 100
+
+    newGrid.data = tuple(tmp_data)
+
+    return newGrid

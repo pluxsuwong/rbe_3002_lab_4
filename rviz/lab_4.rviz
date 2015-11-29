@@ -5,9 +5,11 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Status1
+        - /Grid1
         - /TF1/Frames1
         - /TF1/Tree1
         - /Global Planning1/Planner1
+        - /A* Obstacles1
       Splitter Ratio: 0.5
     Tree Height: 531
   - Class: rviz/Selection
@@ -47,7 +49,7 @@ Visualization Manager:
         Y: 0
         Z: 0
       Plane: XY
-      Plane Cell Count: 2000
+      Plane Cell Count: 10000
       Reference Frame: <Fixed Frame>
       Value: true
     - Alpha: 1
@@ -402,13 +404,13 @@ Visualization Manager:
       Name: A* Frontier
       Topic: lab4/frontier
       Value: true
-    - Alpha: 0
+    - Alpha: 0.2
       Class: rviz/GridCells
-      Color: 160; 160; 164
-      Enabled: false
-      Name: GridCells
-      Topic: lab4/unexplored
-      Value: false
+      Color: 255; 85; 255
+      Enabled: true
+      Name: A* Obstacles
+      Topic: lab4/obstacles
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -432,16 +434,16 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 8.24569
+      Distance: 5.13051
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.654853
-        Y: 2.70312
-        Z: 0.0969942
+        X: -1.12825
+        Y: 2.43466
+        Z: 0.0974692
       Name: Current View
       Near Clip Distance: 0.01
       Pitch: 1.5698

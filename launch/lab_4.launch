@@ -4,9 +4,7 @@
   <arg name="3d_sensor"  default="$(optenv TURTLEBOT_3D_SENSOR kinect)"/>  <!-- kinect, asus_xtion_pro -->
 
   <!-- Name of the map to use (without path nor extension) and initial position -->
-<!--  <arg name="map_file"       default=" $(env TURTLEBOT_STAGE_MAP_FILE)"/> -->
   <arg name="map_file"       default=" $(find lab_4)/maps/AK220Map.yaml"/>
-<!--  <arg namme="world_file"     default=" $(env TURTLEBOT_STAGE_WORLD_FILE)"/> -->
   <arg name="world_file"     default=" $(find lab_4)/maps/AK220Map.world"/>
   <arg name="initial_pose_x" default="2.0"/>
   <arg name="initial_pose_y" default="2.0"/>
@@ -61,7 +59,7 @@
 
 <!--
 
-    <node name="map_server" pkg="map_server" type="map_server" args="$(find lab_4)/maps/AK220Map.yaml">
+    <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)">
         <param name="frame_id" value="/map"/>
     </node>
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find lab_4)/rviz/lab_4.rviz"/>
