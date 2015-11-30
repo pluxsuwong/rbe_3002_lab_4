@@ -76,8 +76,8 @@ def a_star(start_in, goal_in, w_map):
             g_score[neighbor_i] = tentative_g_score
             f_score[neighbor_i] = g_score[neighbor_i] + heuristic_cost_estimate(neighbor_i, goal_i, map_len)
 
-        rvizFrontier(open_set, w_map_2)
-        rvizExpanded(closed_set, w_map_2)
+        # rvizFrontier(open_set, w_map_2)
+        # rvizExpanded(closed_set, w_map_2)
 
     print 'A* Failed...'
     return None
