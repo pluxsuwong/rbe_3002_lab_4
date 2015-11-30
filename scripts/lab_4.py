@@ -67,10 +67,7 @@ def gridToWorld(g_pt, w_map):
     return w_pt
 
 # Generate Waypoints
-def genWaypoints(w_path, w_map):
-    g_path = []
-    for point in w_path:
-        g_path.append(worldToGrid(point, w_map))
+def genWaypoints(g_path, w_map):
 
     g_pts = []
     w_ori = []
@@ -171,7 +168,7 @@ def publishTwist(lin_vel, ang_vel):
 # Drive to a goal subscribed as /move_base_simple/goal
 def navToPose(goal):
     global pose
-    start = (5, 5)
+    start = (0, 0)
 
     x0 = start[0] + pose.pose.position.x        #Set origin
     y0 = start[1] + pose.pose.position.y
@@ -382,7 +379,6 @@ if __name__ == '__main__':
         if generated_path != None and not rospy.is_shutdown():
             print "Updated RViz with path"
             rvizPath(generated_path, map_cache)
-            
             path = genWaypoints(generated_path, map_cache)
             waypoints_pub.publish(path)
 

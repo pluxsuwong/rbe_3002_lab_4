@@ -251,7 +251,7 @@ if __name__ == '__main__':
         rospy.sleep(rospy.Duration(1, 0))
         pass
     '''
-    #driveArc(0.5, 0.3, math.pi)
+    driveArc(0.5, 0.3, math.pi)
     
     print "Lab 2 complete!"
 
