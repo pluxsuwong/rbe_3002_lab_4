@@ -216,7 +216,8 @@ def updateMap(e_o_indexes, w_map):
     tmp_data = list(w_map.data)
     
     for index in e_o_indexes:
-        tmp_data[index] = 100
+        if index >= 0 and index < len(w_map.data):
+            tmp_data[index] = 100
 
     newGrid.data = tuple(tmp_data)
 

@@ -22,6 +22,7 @@ def readWorldMapCallback(data):
 
 def startCallback(data):
     global start_pose
+    global start_pose_raw
     tmp_buf = []
     pos_buf = data.pose.pose.position
     tmp_buf.append(pos_buf.x)
@@ -31,6 +32,7 @@ def startCallback(data):
     r, p, y = euler_from_quaternion(quat)
     tmp_buf.append(y)
     start_pose = tmp_buf
+    start_pose_raw = data.pose
 
 def goalCallback(data):
     global goal_pose
@@ -166,16 +168,13 @@ def publishTwist(lin_vel, ang_vel):
         nav_pub.publish(twist_msg)          #Send Message
 
 # Drive to a goal subscribed as /move_base_simple/goal
-def navToPose(goal):
-    global pose
-    start = (0, 0)
-
-    x0 = start[0] + pose.pose.position.x        #Set origin
-    y0 = start[1] + pose.pose.position.y
-    q0 = (pose.pose.orientation.x,
-            pose.pose.orientation.y,
-            pose.pose.orientation.z,
-            pose.pose.orientation.w)
+def navToPose(start, goal):
+    x0 = start.pose.position.x        #Set origin
+    y0 = start.pose.position.y
+    q0 = (start.pose.orientation.x,
+            start.pose.orientation.y,
+            start.pose.orientation.z,
+            start.pose.orientation.w)
     x2 = goal.pose.position.x
     y2 = goal.pose.position.y
     q2 = (goal.pose.orientation.x,
@@ -195,9 +194,16 @@ def navToPose(goal):
     dtheta1 = theta2 - theta1
     distance = math.sqrt(dx**2 + dy**2)
 
+    print "[x0: ", x0, "][y0: ", y0, "][theta0: ", theta0, "]"
+    print "[x2: ", x2, "][y2: ", y2, "][theta2: ", theta2, "]"
+    print "dtheta0: ", dtheta0
+    print "distance: ", distance
+    print "dtheta1: ", dtheta1
+
     rotate(dtheta0)
     driveStraight(0.1, distance)
     rotate(dtheta1)
+    return goal
 
 def rotate(angle):
     global odom_list
@@ -234,9 +240,9 @@ def rotate(angle):
             done = True
         else:
             if (angle > 0):
-                publishTwist(0, 0.1)
+                publishTwist(0, 0.3)
             else:
-                publishTwist(0, -0.1)
+                publishTwist(0, -0.3)
 
 #This function accepts a speed and a distance for the robot to move in a straight line
 def driveStraight(speed, distance):
@@ -279,6 +285,7 @@ if __name__ == '__main__':
     global new_map_flag
     global world_map
     global start_pose
+    global start_pose_raw
     global goal_pose
     global cost_map
 
@@ -384,7 +391,11 @@ if __name__ == '__main__':
 
             print "Published generated path to topic: [/lab4/waypoints]"
         
+        # pose.pose.position = start_pose_raw.pose.pose.position
+        # pose.pose.orientation = start_pose_raw.pose.pose.orientation
+        cur_wp = start_pose_raw
         for waypoint in path.poses:
-            navToPose(waypoint)
+            print "Moving to: ", waypoint
+            cur_wp = navToPose(cur_wp, waypoint)
         
     print "Exiting program"
