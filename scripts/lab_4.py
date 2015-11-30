@@ -20,20 +20,6 @@ def readWorldMapCallback(data):
     goal_pose = None
     new_map_flag = 1
 
-def startCallback(data):
-    global start_pose
-    global start_pose_raw
-    tmp_buf = []
-    pos_buf = data.pose.pose.position
-    tmp_buf.append(pos_buf.x)
-    tmp_buf.append(pos_buf.y)
-    q = data.pose.pose.orientation
-    quat = [q.x, q.y, q.z, q.w]
-    r, p, y = euler_from_quaternion(quat)
-    tmp_buf.append(y)
-    start_pose = tmp_buf
-    start_pose_raw = data.pose
-
 def goalCallback(data):
     global goal_pose
     tmp_buf = []
@@ -105,28 +91,6 @@ def genWaypoints(g_path, w_map):
 
 '''-----------------------------------------Update Grid Functions---------------------------------------'''
 
-def rvizStart(pos_buf, w_map):
-    global start_pub
-
-    start_point = Point(pos_buf[0], pos_buf[1], 0)
-    start_GC = GridCells()
-    start_GC.cell_width = w_map.info.resolution
-    start_GC.cell_height = w_map.info.resolution
-    start_GC.cells = [gridToWorld(worldToGrid(start_point, w_map), w_map)]
-    start_GC.header.frame_id = 'map'
-    start_pub.publish(start_GC)
-
-def rvizGoal(pos_buf, w_map):
-    global goal_pub
-
-    goal_point = Point(pos_buf[0], pos_buf[1], 0)
-    goal_GC = GridCells()
-    goal_GC.cell_width = w_map.info.resolution
-    goal_GC.cell_height = w_map.info.resolution
-    goal_GC.cells = [gridToWorld(worldToGrid(goal_point, w_map), w_map)]
-    goal_GC.header.frame_id = 'map'
-    goal_pub.publish(goal_GC)
-
 def rvizPath(cell_list, w_map):
     global path_pub
 
@@ -168,13 +132,15 @@ def publishTwist(lin_vel, ang_vel):
         nav_pub.publish(twist_msg)          #Send Message
 
 # Drive to a goal subscribed as /move_base_simple/goal
-def navToPose(start, goal):
-    x0 = start.pose.position.x        #Set origin
-    y0 = start.pose.position.y
-    q0 = (start.pose.orientation.x,
-            start.pose.orientation.y,
-            start.pose.orientation.z,
-            start.pose.orientation.w)
+def navToPose(goal):
+    global pose
+
+    x0 = pose.pose.position.x        #Set origin
+    y0 = pose.pose.position.y
+    q0 = (pose.pose.orientation.x,
+            pose.pose.orientation.y,
+            pose.pose.orientation.z,
+            pose.pose.orientation.w)
     x2 = goal.pose.position.x
     y2 = goal.pose.position.y
     q2 = (goal.pose.orientation.x,
@@ -203,7 +169,6 @@ def navToPose(start, goal):
     rotate(dtheta0)
     driveStraight(0.1, distance)
     rotate(dtheta1)
-    return goal
 
 def rotate(angle):
     global odom_list
@@ -284,8 +249,6 @@ if __name__ == '__main__':
     # Global Variables
     global new_map_flag
     global world_map
-    global start_pose
-    global start_pose_raw
     global goal_pose
     global cost_map
 
@@ -313,20 +276,15 @@ if __name__ == '__main__':
 
     # Subscribers
     world_map_sub = rospy.Subscriber('/map', OccupancyGrid, readWorldMapCallback)
-    start_pose_sub = rospy.Subscriber('/initialpose', PoseWithCovarianceStamped, startCallback)
     goal_pose_sub = rospy.Subscriber('/move_base_simple/goal/lab_4', PoseStamped, goalCallback)
-    cost_map_sub = rospy.Subscriber('/move_base/global_costmap/costmap', OccupancyGrid, costMapCallback)
+    # cost_map_sub = rospy.Subscriber('/move_base/global_costmap/costmap', OccupancyGrid, costMapCallback)
 
     # Publishers
-    global start_pub
-    global goal_pub
     global path_pub
     global waypoints_pub
     global nav_pub
     global odom_sub
 
-    start_pub = rospy.Publisher('/lab4/start', GridCells, queue_size=1)
-    goal_pub = rospy.Publisher('/lab4/goal', GridCells, queue_size=1)
     path_pub = rospy.Publisher('/lab4/path', GridCells, queue_size=1)
     waypoints_pub = rospy.Publisher('/lab4/waypoints', Path, queue_size=1)
     nav_pub = rospy.Publisher('/cmd_vel_mux/input/teleop', Twist, queue_size=1)
@@ -352,17 +310,6 @@ if __name__ == '__main__':
             world_map = None
             print "Updated map cache"
 
-        print "Waiting for new start position"
-        while start_pose == None and not rospy.is_shutdown():
-            if new_map_flag > 0:
-                break
-        if new_map_flag > 0 or rospy.is_shutdown():
-            continue
-        start_cache = start_pose
-        start_pose = None
-        rvizStart(start_cache, map_cache)
-        print "Received start position at: [%f, %f]" % (start_cache[0], start_cache[1])
-
         print "Waiting for new goal position"
         while goal_pose == None and not rospy.is_shutdown():
             if new_map_flag > 0:
@@ -371,15 +318,24 @@ if __name__ == '__main__':
             continue
         goal_cache = goal_pose
         goal_pose = None
-        rvizGoal(goal_cache, map_cache)
         print "Received goal position at: [%f, %f]" % (goal_cache[0], goal_cache[1])
 
         print "Finished initialization"
         print "Running A* algorithm..."
+
+        # Prepping for A*
+        start_cache = []
+        start_cache.append(pose.pose.position.x)
+        start_cache.append(pose.pose.position.y)
+        q_tmp = pose.pose.orientation
+        quat_tmp = [q_tmp.x, q_tmp.y, q_tmp.z, q_tmp.w]
+        r_t, p_t, y_t = euler_from_quaternion(quat_tmp)
+        start_cache.append(y_t)
         res = map_cache.info.resolution
         start_cc = [int(start_cache[0]/res), int(start_cache[1]/res), start_cache[2]]
         goal_cc = [int(goal_cache[0]/res), int(goal_cache[1]/res), goal_cache[2]]
 
+        # Running A*
         generated_path = astar.a_star(start_cc, goal_cc, map_cache)
         print "Finished running A* algorithm"
 
@@ -391,11 +347,8 @@ if __name__ == '__main__':
 
             print "Published generated path to topic: [/lab4/waypoints]"
         
-        # pose.pose.position = start_pose_raw.pose.pose.position
-        # pose.pose.orientation = start_pose_raw.pose.pose.orientation
-        cur_wp = start_pose_raw
         for waypoint in path.poses:
             print "Moving to: ", waypoint
-            cur_wp = navToPose(cur_wp, waypoint)
+            navToPose(waypoint)
         
     print "Exiting program"
