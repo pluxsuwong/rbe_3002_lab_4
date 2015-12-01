@@ -1,4 +1,4 @@
 <launch>
-    <node name="lab_4" pkg="lab_4" type="lab_4.py" output="screen" />
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find lab_4)/rviz/lab_4.rviz" />
+    <node name="lab_4" pkg="lab_4" type="lab_4.py" output="screen" />
 </launch>

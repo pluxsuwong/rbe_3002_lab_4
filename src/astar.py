@@ -22,11 +22,13 @@ def a_star(start_in, goal_in, w_map):
     unexplored_pub = rospy.Publisher('/lab4/unexplored', GridCells, queue_size=0)
     obstacles_pub = rospy.Publisher('/lab4/obstacles', GridCells, queue_size=1)
 
-    start = Point(start_in[0], start_in[1], 0)
-    goal = Point(goal_in[0], goal_in[1], 0)
+    start = Point(start_in[0], start_in[1], start_in[2])
+    goal = Point(goal_in[0], goal_in[1], goal_in[2])
     map_len = w_map.info.width
     start_i = p_to_i(start, map_len)
+    # print "start: ", start, "start_i: ", start_i
     goal_i = p_to_i(goal, map_len)
+    # print "goal: ", goal, "goal_i: ", goal_i
 
     closed_set = set([])    	  # The set of nodes already evaluated.
     open_set = set([])    # The set of tentative nodes to be evaluated, initially containing the start node
@@ -76,8 +78,8 @@ def a_star(start_in, goal_in, w_map):
             g_score[neighbor_i] = tentative_g_score
             f_score[neighbor_i] = g_score[neighbor_i] + heuristic_cost_estimate(neighbor_i, goal_i, map_len)
 
-        # rvizFrontier(open_set, w_map_2)
-        # rvizExpanded(closed_set, w_map_2)
+        rvizFrontier(open_set, w_map_2)
+        rvizExpanded(closed_set, w_map_2)
 
     print 'A* Failed...'
     return None

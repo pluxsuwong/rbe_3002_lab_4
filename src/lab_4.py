@@ -55,10 +55,14 @@ def gridToWorld(g_pt, w_map):
     return w_pt
 
 # Generate Waypoints
-def genWaypoints(g_path, w_map):
-
+def genWaypoints(g_path_rev, w_map):
+    
     g_pts = []
     w_ori = []
+    g_path = list(reversed(g_path_rev))
+
+    # Waypoints based on change in direction
+    '''
     prev_pt = g_path[0]
     i_dx = g_path[1].x - g_path[0].x
     i_dy = g_path[1].y - g_path[0].y
@@ -80,10 +84,40 @@ def genWaypoints(g_path, w_map):
     q_t = quaternion_from_euler(0, 0, 0)
     quat_heading = Quaternion(*q_t)
     w_ori.append(quat_heading)
-    
+    '''
+
+    # Waypoints every 4 grids
+    prev_pt = g_path[0]
+    tmp_ctr = 0
+    for i, point in enumerate(g_path):
+        if i == len(g_path) - 1:
+            g_pts.append(g_path[-1])
+
+            q_t = quaternion_from_euler(0, 0, 0)
+            quat_heading = Quaternion(*q_t)
+
+            w_ori.append(quat_heading)
+        elif tmp_ctr == 3:
+            tmp_ctr = 0
+            g_pts.append(point)
+
+            dx = point.x - prev_pt.x
+            dy = point.y - prev_pt.y
+            heading = (dx, dy)
+            th_heading = math.atan2(heading[1], heading[0])
+            q_t = quaternion_from_euler(0, 0, th_heading)
+            quat_heading = Quaternion(*q_t)
+
+            w_ori.append(quat_heading)
+            prev_pt = point
+        else:
+            tmp_ctr += 1
+
+    # Convert grid points to world coordinates
     w_pts = []
     for point in g_pts:
         w_pts.append(gridToWorld(point, w_map))
+    # Create actual Path()
     path = Path()
     for i in range(len(w_pts)):
         path.poses.append(PoseStamped(Header(), Pose(w_pts[i], w_ori[i])))
@@ -159,12 +193,14 @@ def navToPose(goal):
     dtheta0 = theta1 - theta0
     dtheta1 = theta2 - theta1
     distance = math.sqrt(dx**2 + dy**2)
-
+    
+    '''
     print "[x0: ", x0, "][y0: ", y0, "][theta0: ", theta0, "]"
     print "[x2: ", x2, "][y2: ", y2, "][theta2: ", theta2, "]"
     print "dtheta0: ", dtheta0
     print "distance: ", distance
     print "dtheta1: ", dtheta1
+    '''
 
     rotate(dtheta0)
     driveStraight(0.1, distance)
@@ -205,9 +241,9 @@ def rotate(angle):
             done = True
         else:
             if (angle > 0):
-                publishTwist(0, 0.3)
+                publishTwist(0, 0.5)
             else:
-                publishTwist(0, -0.3)
+                publishTwist(0, -0.5)
 
 #This function accepts a speed and a distance for the robot to move in a straight line
 def driveStraight(speed, distance):
@@ -259,6 +295,7 @@ if __name__ == '__main__':
     global prev_twist
 
     # Initialize Global Variables
+    pose = PoseStamped()
     new_map_flag = 0
     world_map = None
     start_pose = None
@@ -277,18 +314,17 @@ if __name__ == '__main__':
     # Subscribers
     world_map_sub = rospy.Subscriber('/map', OccupancyGrid, readWorldMapCallback)
     goal_pose_sub = rospy.Subscriber('/move_base_simple/goal/lab_4', PoseStamped, goalCallback)
+    odom_sub = rospy.Subscriber('/odom', Odometry, readOdom)
     # cost_map_sub = rospy.Subscriber('/move_base/global_costmap/costmap', OccupancyGrid, costMapCallback)
 
     # Publishers
     global path_pub
     global waypoints_pub
     global nav_pub
-    global odom_sub
 
     path_pub = rospy.Publisher('/lab4/path', GridCells, queue_size=1)
     waypoints_pub = rospy.Publisher('/lab4/waypoints', Path, queue_size=1)
     nav_pub = rospy.Publisher('/cmd_vel_mux/input/teleop', Twist, queue_size=1)
-    odom_sub = rospy.Subscriber('/odom', Odometry, readOdom)
 
     print "Waiting for map"
     while world_map == None and not rospy.is_shutdown():
@@ -310,6 +346,14 @@ if __name__ == '__main__':
             world_map = None
             print "Updated map cache"
 
+        start_cache = []
+        start_cache.append(pose.pose.position.x)
+        start_cache.append(pose.pose.position.y)
+        q_tmp = pose.pose.orientation
+        quat_tmp = [q_tmp.x, q_tmp.y, q_tmp.z, q_tmp.w]
+        r_t, p_t, y_t = euler_from_quaternion(quat_tmp)
+        start_cache.append(y_t)
+
         print "Waiting for new goal position"
         while goal_pose == None and not rospy.is_shutdown():
             if new_map_flag > 0:
@@ -324,16 +368,18 @@ if __name__ == '__main__':
         print "Running A* algorithm..."
 
         # Prepping for A*
-        start_cache = []
-        start_cache.append(pose.pose.position.x)
-        start_cache.append(pose.pose.position.y)
-        q_tmp = pose.pose.orientation
+        origin_cache = []
+        origin_cache.append(map_cache.info.origin.position.x)
+        origin_cache.append(map_cache.info.origin.position.y)
+        q_tmp = map_cache.info.origin.orientation
         quat_tmp = [q_tmp.x, q_tmp.y, q_tmp.z, q_tmp.w]
         r_t, p_t, y_t = euler_from_quaternion(quat_tmp)
-        start_cache.append(y_t)
+        origin_cache.append(y_t)
+
         res = map_cache.info.resolution
-        start_cc = [int(start_cache[0]/res), int(start_cache[1]/res), start_cache[2]]
-        goal_cc = [int(goal_cache[0]/res), int(goal_cache[1]/res), goal_cache[2]]
+        map_origin = (int(-origin_cache[0]/res), int(-origin_cache[1]/res))
+        start_cc = [int(start_cache[0]/res) + map_origin[0], int(start_cache[1]/res) + map_origin[1], 0]
+        goal_cc = [int(goal_cache[0]/res) + map_origin[0], int(goal_cache[1]/res) + map_origin[1], 0]
 
         # Running A*
         generated_path = astar.a_star(start_cc, goal_cc, map_cache)
@@ -347,8 +393,34 @@ if __name__ == '__main__':
 
             print "Published generated path to topic: [/lab4/waypoints]"
         
+        print "Waypoints:"
+        tmp_wp_ctr = 0
         for waypoint in path.poses:
-            print "Moving to: ", waypoint
-            navToPose(waypoint)
+            print tmp_wp_ctr, ": [", waypoint.pose.position.x, ", ", waypoint.pose.position.y, "]"
+            tmp_wp_ctr += 1
+
+        at_goal = False
+        while not at_goal and not rospy.is_shutdown():
+            tmp_wp_ctr = 0
+            curr_cc = []
+            for waypoint in path.poses:
+                print "Navigating to waypoint: ", tmp_wp_ctr
+                tmp_wp_ctr += 1
+
+                # Replanning
+                navToPose(waypoint)
+                curr_cc = [int(waypoint.pose.position.x/res) + map_origin[0], int(waypoint.pose.position.y/res) + map_origin[1], 0]
+                if world_map != None:
+                    map_cache = world_map
+                    generated_path = astar.a_star(curr_cc, goal_cc, map_cache)
+
+                    print "Updated RViz with path"
+                    rvizPath(generated_path, map_cache)
+                    path = genWaypoints(generated_path, map_cache)
+                    waypoints_pub.publish(path)
+                    print "Published generated path to topic: [/lab4/waypoints]"
+                    break
+            if curr_cc[0] == goal_cc[0] and curr_cc[1] == goal_cc[1]:
+                at_goal = True
         
     print "Exiting program"
